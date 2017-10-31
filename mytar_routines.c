@@ -79,10 +79,11 @@ loadstr(FILE * file)
 stHeaderEntry*
 readHeader(FILE * tarFile, int * nFiles)
 {
-    stHeaderEntry* pairs;
-    if(fread(nFiles, sizeof(int), 1, tarFile) < 1) return NULL;
+    stHeaderEntry *pairs=NULL;
     
-    pairs = malloc (sizeof(stHeaderEntry)*nFiles);
+    if(fread(nFiles, sizeof(int), 1, tarFile) < 1) return NULL;
+
+    pairs = malloc((unsigned long int)nFiles * sizeof(stHeaderEntry));
     if(pairs == NULL)return NULL;
     
     char* fileName;
@@ -152,7 +153,7 @@ createTar(int nFiles, char *fileNames[], char tarName[])
         
         //Copy the information in outputFile
         int aux;
-        fread(&aux, sizeof(int), inputFile);
+        fread(&aux, sizeof(int),1, inputFile);
         copiedBytes = copynFile(inputFile, outputFile, aux);
        
         //Create the pair in memory for the header
@@ -205,7 +206,8 @@ extractTar(char tarName[])
     //First load the tarball's header into memory.
     stHeaderEntry* header;
     
-    FILE* inputFile, outputFile;
+    FILE *inputFile=NULL;
+    FILE *outputFile= NULL;
     inputFile = fopen(tarName, "r");
     if(inputFile == NULL) return EXIT_FAILURE;
     
@@ -216,7 +218,7 @@ extractTar(char tarName[])
     if(header==NULL) return EXIT_FAILURE;
     
     for (int i= 0; i < nFiles; i++) {
-        outputFile = fopen(header[i].name,"w");
+        outputFile = fopen(header[i].name, "w");
         if(outputFile==NULL)return EXIT_FAILURE;
         
         if(copynFile(inputFile, outputFile, header[i].size) == -1) return EXIT_FAILURE;
@@ -229,5 +231,5 @@ extractTar(char tarName[])
     }
     free(header);
 
-	return EXIT_SUCESS;
+	return EXIT_SUCCESS;
 }
