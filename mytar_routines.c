@@ -17,20 +17,15 @@ extern char *use;
 int
 copynFile(FILE * origin, FILE * destination, int nBytes)
 {
-	char c;
-	if(origin==NULL)return -1;
-	int i = 0;
-	for(; i < nBytes && origin != EOF; i++){
-		/* Copy byte from origin */
-		c = fgetc(origin);
-		/* Write byte to destination */
-		if(fputc(c, destination) ==EOF) return -1;
+	if(origin == NULL) return -1;
+	int i;
+	int read = 0;
+
+	while ((i < nBytes) && (read = getc(origin)) !=EOF){
+		putc(read,destination);
+		i++;
 	}
-    
-	//If nBytes is not equal to the bytes copied we return -1
-	if (i < nBytes)return i;
-                            // invoca desde el createtarball byte a byte se copia
-	return nBytes;
+	return i;
 }
 
 /** Loads a string from a file.
@@ -48,20 +43,25 @@ char*
 loadstr(FILE * file)
 {
     int strSize = 0;
+    int i = 0;
     char c;
+    char *heapStore;
     /* Look for the size of the file name */
-    while(c != EOF && c != '\0'){
-        c = fgetc(file);
+    while((c = getc(file)) != '\0'){
         strSize++;
     }
-    
-    if(strSize !=0){
+    if(strSize != 0){
         /* Reserve the memory to allocate the file descriptor */
-        char * heapStore = malloc(sizeof(char) * strSize);
+        heapStore = malloc(sizeof(char)*(strSize+1));
+
         /* Put the pointer at the beggining of the file and then it reads the file
          descriptor allocating it in the reserved memory */
-        if( fseek(file,0,SEEK_SET) == -1) return NULL;
-        if( fread(heapStore, sizeof(char), strSize, file) < strSize) return NULL;
+        if(fseek(file,-(strSize+1), SEEK_CUR) != 0) return NULL;
+
+        for(i=0; i<strSize+1; i++){
+        	heapStore[i] = getc(file);
+        }
+
         return heapStore;
     }
     else return NULL;
@@ -79,27 +79,32 @@ loadstr(FILE * file)
 stHeaderEntry*
 readHeader(FILE * tarFile, int * nFiles)
 {
-    stHeaderEntry *pairs=NULL;
-    
-    if(fread(nFiles, sizeof(int), 1, tarFile) < 1) return NULL;
+	stHeaderEntry *pairs = NULL;
+	int files;
+	int tam;
 
-    pairs = malloc((unsigned long int)nFiles * sizeof(stHeaderEntry));
+    if(fread(&files, sizeof(int), 1, tarFile) < 1) return NULL;
+
+    pairs = malloc((unsigned int)files * sizeof(stHeaderEntry));
+
+
     if(pairs == NULL)return NULL;
-    
+
     char* fileName;
-    
-    if(fseek(tarFile, sizeof(int),SEEK_SET) == -1) return NULL;
-    
-    for (int i = 0; i < nFiles; i++) {
+
+    int i=0;
+    for (; i < files; i++) {
+
         fileName = loadstr(tarFile);
-        if(fileName == NULL)return NULL;
-        
+        if(fileName == NULL) return NULL;
+
         pairs[i].name = fileName;
-        if(fread(pairs[i].size, sizeof(int),1 ,tarFile) < 1) return NULL;
+        if(fread(&tam, sizeof(unsigned int),1, tarFile) < 1) return NULL;
+        pairs[i].size = tam;
     }
-    
-    if(fseek(pairs,0,SEEK_SET) == -1) return NULL;
-    
+
+    (*nFiles) = files;
+
     return pairs;
 }
 
@@ -124,65 +129,67 @@ readHeader(FILE * tarFile, int * nFiles)
  * pairs occupy strlen(name)+1 bytes.
  *
  */
+
 int
 createTar(int nFiles, char *fileNames[], char tarName[])
 {
     int bytesHeader = 0, copiedBytes = 0;
+    int i = 0;
 
     FILE* inputFile; // Used for reading each .txt file
     FILE* outputFile; // Used for writing in the output file.
-    
-    stHeaderEntry* stHeader; // Pointer to the program header struct.
-    
+
+    stHeaderEntry *stHeader; // Pointer to the program header struct.
+
     // Create a stHeader in the heap with the correct size
-    
+
     stHeader = malloc(sizeof(stHeaderEntry) * nFiles); // Allocate memory for an array of stHeader Structs
-    bytesHeader += sizeof(int) + nFiles * sizeof(unsigned int); // other int for each struct to store the bytes of the file
-    
-    for (int i = 0; i < nFiles; i++) {
+    bytesHeader += (sizeof(int) + nFiles * sizeof(unsigned int)); // other int for each struct to store the bytes of the file
+    for (i=0; i < nFiles; i++) {
         bytesHeader += strlen(fileNames[i]) + 1; // Sum the bytes for each filename (+1 for the '\0' character)
     }
-    
+
     outputFile =  fopen(tarName, "w"); // Open the name.mtar file for writing the header and data of the files.
     fseek(outputFile, bytesHeader, SEEK_SET); // Move the file's position indicator to the data section (skip the header)
-    
+
     //Copies the files into OutputFile
-    for(int i= 0; i < nFiles; i++){
+
+    for(i=0; i < nFiles; i++){
         inputFile = fopen(fileNames[i],"r");
         if(inputFile == NULL) return EXIT_FAILURE;
-        
+
         //Copy the information in outputFile
-        int aux;
-        fread(&aux, sizeof(int),1, inputFile);
+        int aux = INT_MAX;
         copiedBytes = copynFile(inputFile, outputFile, aux);
-       
+
         //Create the pair in memory for the header
         if(copiedBytes == -1) return EXIT_FAILURE;
         else{
             stHeader[i].size = copiedBytes;
             stHeader[i].name = malloc( strlen(fileNames[i]) + 1 );
-            strcopy(stHeader[i].name,fileNames[i]);
+            strcpy(stHeader[i].name,fileNames[i]);
         }
-        
+
         if(fclose(inputFile)==EOF) return EXIT_FAILURE;
     }
-    
+
     fseek(outputFile, 0, SEEK_SET);
-    fwrite(nFiles, sizeof(int), 1, outputFile);
-    
+    fwrite(&nFiles, sizeof(int), 1, outputFile);
+
     //Copies the heather allocated in memory into OutputFile
-    for (int i = 0; i < nFiles; i++) {
+
+    for (i=0; i < nFiles; i++) {
         fwrite(stHeader[i].name, strlen(stHeader[i].name)+1, 1, outputFile);
-        fwrite(stHeader[i].size, sizeof(int), 1, outputFile);
+        fwrite(&stHeader[i].size, sizeof(int), 1, outputFile);
     }
-    
-    for(int i = 0; i < nFiles; i++){
+
+    for(i=0; i < nFiles; i++){
         free(stHeader[i].name);
     }
     free(stHeader);
-    
+
     if(fclose(outputFile) == EOF) return EXIT_FAILURE;
-	
+
 	return EXIT_SUCCESS;
 }
 
@@ -200,36 +207,49 @@ createTar(int nFiles, char *fileNames[], char tarName[])
  * stored in the data section of the tarball.
  *
  */
+
 int
 extractTar(char tarName[])
 {
     //First load the tarball's header into memory.
     stHeaderEntry* header;
-    
-    FILE *inputFile=NULL;
-    FILE *outputFile= NULL;
-    inputFile = fopen(tarName, "r");
-    if(inputFile == NULL) return EXIT_FAILURE;
-    
-    int nFiles;
-    if(fread(&nFiles, sizeof(int), 1, inputFile) < 1)return EXIT_FAILURE;
-    
-    header = readHeader(inputFile, nFiles);
+
+    FILE *inputFile = NULL;
+    FILE *outputFile;
+    int nFiles = 0;
+
+    if((inputFile = fopen(tarName, "r")) == NULL) {
+    	printf("No existe el archivo %s\n",tarName);
+    	return EXIT_FAILURE;
+    }
+
+
+    header = readHeader(inputFile, &nFiles);
     if(header==NULL) return EXIT_FAILURE;
-    
-    for (int i= 0; i < nFiles; i++) {
-        outputFile = fopen(header[i].name, "w");
-        if(outputFile==NULL)return EXIT_FAILURE;
-        
-        if(copynFile(inputFile, outputFile, header[i].size) == -1) return EXIT_FAILURE;
-        
+
+    int  i=0;
+
+    for (; i < nFiles; i++) {
+
+        if((outputFile = fopen(header[i].name, "w")) == NULL){
+        	printf("No se ha podido crear el archivo %s\n",header[i].name);
+        	return EXIT_FAILURE;
+        }
+
+        int aux;
+        if((aux=copynFile(inputFile, outputFile, header[i].size)) < header[i].size){
+        	printf("No se ha copiado correctamente el archivo %s\n", header[i].name);
+        	return EXIT_FAILURE;
+        }
+
         if(fclose(outputFile) == EOF) return EXIT_FAILURE;
     }
-    
-    for(int i = 0; i < nFiles; i++){
+
+    for(i=0; i < nFiles; i++){
         free(header[i].name);
     }
     free(header);
+    fclose(inputFile);
 
 	return EXIT_SUCCESS;
 }
