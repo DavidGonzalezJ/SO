@@ -78,8 +78,8 @@ else
 fi
 
 read -p "Press enter..."
-truncate --size=+4096 "./$TMP_DIRECTORY/$FILE1"
-truncate --size=+4096 "$MPOINT/$FILE2"
+truncate --size=4096 "./$TMP_DIRECTORY/$FILE1"
+truncate --size=4096 "$MPOINT/$FILE2"
 
 ./my-fsck-static-64 virtual-disk
 

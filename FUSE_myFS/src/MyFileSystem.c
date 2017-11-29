@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     fprintf(stderr, "File system available\n");
 
     // Parse the arguments for FUSE
-    argc = 1;int (*read) (const char *, char *, size_t, off_t, struct fuse_file_info *);
+    argc = 1;
     argvNew[0] = argv[0];
 
     pTmp = strtok(argsFUSE, " ");

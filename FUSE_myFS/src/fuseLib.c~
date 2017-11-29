@@ -474,76 +474,6 @@ static int my_truncate(const char *path, off_t size)
     return 0;
 }
 
-/*
- * Read
- *
- * Read sizebytes from the given file into the buffer buf, beginning offset bytes into the file.
- * Returns the number of bytes transferred, or 0 if offset was at or beyond the end of the file.
- *
-*/
-static int my_read (const char * path, char * buf, size_t size, off_t offset, struct fuse_file_info * fi){
-	char buffer[BLOCK_SIZE_BYTES]; // 1 bloque de caracteres.
-	int bytes2Read = size, totalRead = 0;
-	NodeStruct *node = myFileSystem.nodes[fi->fh];
-
-	fprintf(stderr, "--->>>my_read: path %s, size %zu, offset %jd, fh %"PRIu64"\n", path, size, (intmax_t)offset, fi->fh);
-
-	// Read data
-	while(bytes2Read>0) {
-
-		int i;
-		int currentBlock, offBlock;
-		currentBlock = node->blocks[offset / BLOCK_SIZE_BYTES];
-		offBlock = offset % BLOCK_SIZE_BYTES;
-
-		if(readBlock(&myFileSystem, currentBlock, &buffer)==-1 ) {
-			fprintf(stderr,"Error reading blocks in my_write\n");
-			return -EIO;
-		}
-
-		for(i = offBlock; (i < BLOCK_SIZE_BYTES) && (totalRead < size); i++) {
-			buf[totalRead] = buffer[i];
-			totalRead++;
-		}
-
-		// Discount the written stuff
-		bytes2Read -= (i - offBlock);
-		offset += i;
-	}
-	sync();
-	return totalRead;
-}
-
-/*
- * Unlink
- */
-static int my_unlink (const char * name){
-	int idxDir;
-
-	fprintf(stderr, "--->>>my_open: path %s \n", name);
-
-	//if(findFileByName(path, &idxNodoI)){
-	if((idxDir = findFileByName(&myFileSystem, (char *)name + 1)) == -1) {
-		return -ENOENT;
-	}
-	int idNode = myFileSystem.directory.files[idxDir].nodeIdx;
-	resizeNode(idNode, 0);
-	myFileSystem.nodes[idNode]->freeNode = true;
-	myFileSystem.numFreeNodes++;
-	myFileSystem.directory.numFiles--;
-
-	NodeStruct* node = myFileSystem.nodes[idNode];
-    updateNode(&myFileSystem, idNode, node);
-
-    // liberar node
-    free(node);
-    myFileSystem.directory.files[idxDir].freeFile=true;
-
-    updateDirectory(&myFileSystem);
-
-//update
-	return 0;
-}
 
 struct fuse_operations myFS_operations = {
     .getattr	= my_getattr,					// Obtain attributes from a file
@@ -553,7 +483,5 @@ struct fuse_operations myFS_operations = {
     .write		= my_write,						// Write data into a file already opened
     .release	= my_release,					// Close an opened file
     .mknod		= my_mknod,						// Create a new file
-	.read		= my_read,						// Read a file
-	.unlink		= my_unlink,					// Unlinks a file
 };
 
