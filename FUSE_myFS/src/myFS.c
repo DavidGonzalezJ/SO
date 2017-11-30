@@ -14,6 +14,7 @@ void copyNode(NodeStruct *dest, NodeStruct *src)
     dest->fileSize = src->fileSize;
     dest->modificationTime = src->modificationTime;
     dest->freeNode = src->freeNode;
+    dest->nlinks = src->nlinks;
 
     for(i = 0; i < MAX_BLOCKS_PER_FILE; i++)
         dest->blocks[i] = src->blocks[i];

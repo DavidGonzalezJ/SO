@@ -43,6 +43,7 @@ typedef struct NodeStructure {
     time_t modificationTime;              		// Modification time
     DISK_LBA blocks[MAX_BLOCKS_PER_FILE];		// Blocks
     BOOLEAN freeNode;                        	// If the node is available
+    int nlinks;									// Number of links
 } NodeStruct;
 
 #define NODES_PER_BLOCK (BLOCK_SIZE_BYTES/sizeof(NodeStruct))

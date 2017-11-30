@@ -183,7 +183,7 @@ static int my_getattr(const char *path, struct stat *stbuf)
         node = myFileSystem.nodes[myFileSystem.directory.files[idxDir].nodeIdx];
         stbuf->st_size = node->fileSize;
         stbuf->st_mode = S_IFREG | 0644;
-        stbuf->st_nlink = 1;
+        stbuf->st_nlink = node->nlinks;
         stbuf->st_uid = getuid();
         stbuf->st_gid = getgid();
         stbuf->st_mtime = stbuf->st_ctime = node->modificationTime;
@@ -441,6 +441,7 @@ static int my_mknod(const char *path, mode_t mode, dev_t device)
     myFileSystem.nodes[idxNodoI]->numBlocks = 0;
     myFileSystem.nodes[idxNodoI]->modificationTime = time(NULL);
     myFileSystem.nodes[idxNodoI]->freeNode = false;
+    myFileSystem.nodes[idxNodoI]->nlinks=1;
 
     reserveBlocksForNodes(&myFileSystem, myFileSystem.nodes[idxNodoI]->blocks, 0);
 
@@ -527,24 +528,87 @@ static int my_unlink (const char * name){
 		return -ENOENT;
 	}
 	int idNode = myFileSystem.directory.files[idxDir].nodeIdx;
-	resizeNode(idNode, 0);
-	myFileSystem.nodes[idNode]->freeNode = true;
-	myFileSystem.numFreeNodes++;
-	myFileSystem.directory.numFiles--;
 
-	NodeStruct* node = myFileSystem.nodes[idNode];
-    updateNode(&myFileSystem, idNode, node);
+	if(myFileSystem.nodes[idNode]->nlinks == 1){
+		resizeNode(idNode, 0);
 
-    // liberar node
-    free(node);
+		myFileSystem.nodes[idNode]->freeNode = true;
+		myFileSystem.numFreeNodes++;
+		myFileSystem.directory.numFiles--;
+		NodeStruct* node = myFileSystem.nodes[idNode];
+	    updateNode(&myFileSystem, idNode, node);
+	    updateSuperBlock(&myFileSystem);
+	    myFileSystem.nodes[idNode]->nlinks--;
+
+	    // liberar node
+	    free(node);
+
+	}else {
+		myFileSystem.nodes[idNode]->nlinks--;
+		myFileSystem.directory.numFiles--;
+	}
+	/*Si el número de enlaces es igual a 1 entonces borrará el fichero. Es decir, eliminará los
+bloques asociados a dicho fichero y eliminará la entrada del nombre del fichero del
+directorio.
+Sin embargo, si el número de enlaces es superior a 1 únicamente eliminará la entrada
+del nombre del fichero en el directorio.*/
     myFileSystem.directory.files[idxDir].freeFile=true;
-
     updateDirectory(&myFileSystem);
 
 //update
 	return 0;
 }
+/*
+ * LINK
+ * tiene como parámetros de entrada los nombres de los ficheros
+ * involucrados en la operación ln, donde from y to corresponderían
+ * a newfile y linkfile
+ *
+ */
+static int my_link (const char * from, const char * to){
+	int fromDir;
+	if((fromDir = findFileByName(&myFileSystem, (char *)from + 1)) == -1) {
+			return -ENOENT;
+	}
 
+	int nFrom = myFileSystem.directory.files[fromDir].nodeIdx;
+
+	// We check that the length of the file name is correct
+	if(strlen(to + 1) > myFileSystem.superBlock.maxLenFileName) {
+		return -ENAMETOOLONG;
+	}
+
+	// There exist an available inode
+	if(myFileSystem.numFreeNodes <= 0) {
+		return -ENOSPC;
+	}
+
+	// There is still space for a new file
+	if(myFileSystem.directory.numFiles >= MAX_FILES_PER_DIRECTORY) {
+		return -ENOSPC;
+	}
+	// The directory exists
+	if(findFileByName(&myFileSystem, (char *)to + 1) != -1)
+		return -EEXIST;
+
+	/// Update all the information in the backup file:
+	int idxDir;
+	if((idxDir = findFreeFile(&myFileSystem)) == -1) {
+		return -ENOSPC;
+	}
+
+	// Update root folder
+	myFileSystem.directory.files[idxDir].freeFile = false;
+	myFileSystem.directory.numFiles++;
+	strcpy(myFileSystem.directory.files[idxDir].fileName, to + 1);
+	myFileSystem.directory.files[idxDir].nodeIdx = nFrom;
+
+	myFileSystem.nodes[nFrom]->modificationTime = time(NULL);
+	myFileSystem.nodes[nFrom]->nlinks++;
+	updateDirectory(&myFileSystem);
+	updateNode(&myFileSystem, nFrom, myFileSystem.nodes[nFrom]);
+	return 0;
+}
 struct fuse_operations myFS_operations = {
     .getattr	= my_getattr,					// Obtain attributes from a file
     .readdir	= my_readdir,					// Read directory entries
@@ -555,5 +619,6 @@ struct fuse_operations myFS_operations = {
     .mknod		= my_mknod,						// Create a new file
 	.read		= my_read,						// Read a file
 	.unlink		= my_unlink,					// Unlinks a file
+	.link		= my_link,
 };
 
