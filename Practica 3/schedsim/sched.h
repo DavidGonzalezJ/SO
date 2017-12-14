@@ -116,6 +116,7 @@ typedef struct sched_class {
 extern sched_class_t rr_sched;
 extern sched_class_t sjf_sched;
 extern sched_class_t fifo_sched;
+extern sched_class_t lottery_sched;
 /* Numerical IDs for the available scheduling algorithms */
 enum {
 	RR_SCHED,
@@ -136,7 +137,7 @@ static const sched_choice_t available_schedulers[NR_AVAILABLE_SCHEDULERS]= {
 	{RR_SCHED,"RR",&rr_sched},
 	{SJF_SCHED,"SJF",&sjf_sched},
 	{FIFO_SCHED,"FIFO",&fifo_sched},
-	{LOTTERY_SCHED,"LOTTERY",&lottery_sched},
+	{LOTTERY_SCHED,"LOTTERY",&lottery_sched}
 };
 
 #endif

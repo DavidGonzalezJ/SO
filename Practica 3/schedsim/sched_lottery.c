@@ -51,46 +51,65 @@ static void task_free_lottery(task_t* t)
 
 static task_t* pick_next_task_lottery(runqueue_t* rq)
 {
+	struct lottery_data* cs_data=malloc(sizeof(struct lottery_data));
+	int temp = 0;
+	task_t* aux = head_slist(&rq->tasks);
+	while(aux != NULL){
+		cs_data = (struct lottery_data*) aux->tcs_data;
+		temp += cs_data->number_tickets;
+		aux = next_slist(&rq->tasks, aux);
+	}
 	//RECORRO LA COLA PARA SABER LOS TICKETS
-	int n = rand()%;
+	int n = rand() % temp;
+	int ini = 0, fin=0;
+	aux = head_slist(&rq->tasks);
+	cs_data = (struct lottery_data*) aux->tcs_data;
+	fin = cs_data->number_tickets;
 
-	task_t* t=head_slist(&rq->tasks);
-
+	while(!(ini<n && fin > n)){
+		aux = next_slist(&rq->tasks, aux);
+		ini = fin + 1;
+		cs_data = (struct lottery_data*) aux->tcs_data;
+		fin += cs_data->number_tickets;
+	}
+	cs_data->number_tickets--;
 	/* Current is not on the rq -> let's remove it */
-	if (t)
-		remove_slist(&rq->tasks,t);
+	if (aux){
+		aux->tcs_data = cs_data;
+		remove_slist(&rq->tasks,aux);
+	}
 
-	return t;
+	return aux;
 }
 
 static void enqueue_task_lottery(task_t* t,runqueue_t* rq, int preempted)
 {
-	struct rr_data* cs_data=(struct rr_data*) t->tcs_data;
+	struct lottery_data* cs_data=(struct lottery_data*) t->tcs_data;
 
 	if (t->on_rq || is_idle_task(t))
 		return;
 
 	insert_slist(&rq->tasks,t); //Push task
-	cs_data->remaining_ticks_slice=rr_quantum; // Reset slice
+	//cs_data->remaining_ticks_slice=rr_quantum; // Reset slice
 }
-
+/*
 static void task_tick_lottery(runqueue_t* rq)
 {
 	task_t* current=rq->cur_task;
-	struct rr_data* cs_data=(struct rr_data*) current->tcs_data;
+	struct lottery_data* cs_data=(struct lottery_data*) current->tcs_data;
 
 	if (is_idle_task(current))
 		return;
 
-	cs_data->remaining_ticks_slice--; /* Charge tick */
+	//cs_data->remaining_ticks_slice--; // Charge tick
 
-	if (cs_data->remaining_ticks_slice<=0)
-		rq->need_resched=TRUE; //Force a resched !!
+	//if (cs_data->remaining_ticks_slice<=0)
+	//	rq->need_resched=TRUE; //Force a resched !!
 }
-
+*/
 static task_t* steal_task_lottery(runqueue_t* rq)
 {
-	task_t* t=tail_slist(&rq->tasks);
+	task_t* t = tail_slist(&rq->tasks);
 
 	if (t)
 		remove_slist(&rq->tasks,t);
@@ -103,6 +122,5 @@ sched_class_t lottery_sched= {
 	.task_free=task_free_lottery,
 	.pick_next_task=pick_next_task_lottery,
 	.enqueue_task=enqueue_task_lottery,
-	.task_tick=task_tick_lottery,
 	.steal_task=steal_task_lottery
 };
