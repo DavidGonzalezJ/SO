@@ -1,0 +1,58 @@
+(t0): idle running
+(t1): New task P2
+(t0): Context switch (idle)<->(P2)
+(t1): P2 running
+(t2): New task P4
+(t1): Context switch (P2)<->(P4)
+(t2): P4 running
+(t3): P4 running
+(t3): Context switch (P4)<->(P2)
+(t4): P2 running
+(t4): Context switch (P2)<->(P4)
+(t5): P4 running
+(t6): P4 running
+(t6): Context switch (P4)<->(P2)
+(t7): P2 running
+(t7): Context switch (P2)<->(P4)
+(t8): P4 running
+(t9): Task P4 goes to sleep until (t10)
+(t8): Task P5 migrated from CPU 0 to CPU 1 
+(t8): Context switch (P4)<->(P5)
+(t9): P5 running
+(t10): task P4 awake
+(t10): P5 running
+(t10): Context switch (P5)<->(P4)
+(t11): P4 running
+(t11): Context switch (P4)<->(P5)
+(t12): P5 running
+(t12): Context switch (P5)<->(P4)
+(t13): P4 running
+(t14): P4 running
+(t15): P4 running
+(t16): P4 running
+(t17): Task P4 goes to sleep until (t18)
+(t16): Context switch (P4)<->(P5)
+(t17): P5 running
+(t17): Context switch (P5)<->(idle)
+==================
+P2	1	2	running
+P2	2	4	ready
+P2	4	5	running
+P2	5	7	ready
+P2	7	8	running
+P4	2	4	running
+P4	4	5	ready
+P4	5	7	running
+P4	7	8	ready
+P4	8	9	running
+P4	9	10	I/O
+P4	10	11	ready
+P4	11	12	running
+P4	12	13	ready
+P4	13	17	running
+P4	17	18	I/O
+P5	9	11	running
+P5	11	12	ready
+P5	12	13	running
+P5	13	17	ready
+P5	17	18	running
