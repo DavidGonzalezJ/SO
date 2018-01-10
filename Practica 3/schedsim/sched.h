@@ -137,7 +137,7 @@ static const sched_choice_t available_schedulers[NR_AVAILABLE_SCHEDULERS]= {
 	{RR_SCHED,"RR",&rr_sched},
 	{SJF_SCHED,"SJF",&sjf_sched},
 	{FIFO_SCHED,"FIFO",&fifo_sched},
-	{LOTTERY_SCHED,"LOTTERY",&lottery_sched}
+	{LOTTERY_SCHED,"LOT",&lottery_sched}
 };
 
 #endif
